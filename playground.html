@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+</head>
+<body>
+  <iframe id="playgroundFrame"></iframe>
+  <script>
+var registration, worker;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('playground-service-worker.js')
+    .then(function (serviceWorkerRegistration) {
+      registration = serviceWorkerRegistration;
+      console.log('Registered ServiceWorker with scope ', registration.scope);
+      worker = registration.active;
+      loadSession({
+        "files": [
+          { name: 'index.html', content: '<!doctype html><html><meta charset="utf-8" />Hello, world!<script src="script.js"><\/script></html>'},
+          { name: 'script.js', content: "console.log('script says: hello, world');"}
+        ]
+      }, 'index.html');
+    }).catch(function(err) {
+       console.log('Registration of ServiceWorker failed', err);
+    }).then(function(){
+	return new Promise(function(resolve, reject){
+          setTimeout(resolve, 1000);
+	});
+     }).then(function(){
+});
+} else {
+  console.log('Service Workers not supported!');
+}
+
+var sendFiles = function (message) {
+    return new Promise(function (resolve, reject) {
+      var messageChannel = new MessageChannel();
+      messageChannel.port1.onmessage = function (event) {
+        if (event.data && event.data.error) {
+          reject(event.data.error);
+        } else {
+          resolve(event.data);
+        }
+      };
+      worker = navigator.serviceWorker.controller || registration.active || worker;
+      worker.postMessage(message, [messageChannel.port2]);
+    });
+  };
+
+var playgroundPath = 'playground/';
+var playgroundFrame = document.getElementById('playgroundFrame'); // an iframe
+var loadPage = function(fileName) {
+  playgroundFrame.src = '';
+  playgroundFrame.src = playgroundPath + fileName;
+};
+
+var loadSession = function(session, fileName) {
+  return sendFiles(session).then(function () {
+    loadPage(fileName);
+  });
+};
+
+  </script>
+</body>
+</html>
